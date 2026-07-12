@@ -1,0 +1,69 @@
+name: collect
+
+# Grid Pulse data collector — runs the vidyutpravah demand + Open-Meteo weather
+# collectors and commits new readings back to the repo (the on-the-record dataset).
+#
+# jam-genome lesson applied: GitHub Actions silently skips a large fraction of cron
+# slots. We sample HOURLY (see collector/config.py) but schedule every 15 min so each
+# hourly slot gets ~4 attempts; the collectors' slot guard makes every run idempotent,
+# so over-scheduling never duplicates data. If cron timing is still too unreliable,
+# an external pinger (cron-job.org -> workflow_dispatch) gives deterministic firing.
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"   # every 15 min (UTC); oversamples the hourly slot grid
+  workflow_dispatch: {}       # manual run + external-pinger fallback
+
+# Never let two runs push at once.
+concurrency:
+  group: collect
+  cancel-in-progress: false
+
+permissions:
+  contents: write             # needed to commit collected data back to the repo
+
+jobs:
+  collect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"   # collectors are stdlib-only; no pip install needed
+
+      - name: Collect demand + weather
+        id: collect
+        run: |
+          set +e
+          python -m collector.fetch_demand
+          echo "demand_exit=$?" >> "$GITHUB_OUTPUT"
+          python -m collector.fetch_weather
+          echo "weather_exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Commit new data
+        if: always()
+        run: |
+          git config user.name  "grid-pulse-bot"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          if git diff --cached --quiet; then
+            echo "no new data this run"
+            exit 0
+          fi
+          git commit -m "data: collect $(date -u +%Y-%m-%dT%H:%MZ)"
+          # A concurrent run may have pushed since checkout — rebase and retry.
+          for i in 1 2 3; do
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}" \
+              && git push && exit 0
+            echo "push attempt $i failed; retrying in 5s"; sleep 5
+          done
+          echo "::warning::could not push collected data after 3 attempts"
+
+      # A schema break (vidyutpravah changed shape -> demand unparseable) is the one
+      # failure mode that would silently rot the dataset. Surface it as a red run.
+      - name: Alert on schema break
+        if: always() && steps.collect.outputs.demand_exit != '0'
+        run: |
+          echo "::error::fetch_demand exited ${{ steps.collect.outputs.demand_exit }} — likely a vidyutpravah schema break. Check collector/fetch_demand.py FIELDS/regex."
+          exit 1
