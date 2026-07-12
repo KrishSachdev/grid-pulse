@@ -1,0 +1,1 @@
+{"ts_ist": "2026-07-13T00:01:08+05:30", "ts_utc": "2026-07-12T18:31:08+00:00", "slot": "2026-07-13T00:00", "state": "maharashtra", "source": "vidyutpravah", "url": "https://vidyutpravah.in/state-data/maharashtra", "ok": false, "error_kind": "fetch", "error": "URLError: <urlopen error [Errno 104] Connection reset by peer>"}
