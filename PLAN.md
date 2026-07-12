@@ -33,9 +33,10 @@ The whole project stands on finding a reliable hourly (or ≤hourly) per-state d
 
 - [x] `collector/fetch_demand.py` (vidyutpravah MH `value_DemandMET_en`) + `collector/fetch_weather.py` (Open-Meteo, 4 MH cities, pop-weighted) → `data/raw/{demand,weather}/YYYY-MM-DD.jsonl`. Stdlib-only, retries/backoff, never crash, gap records, schema-break detection (exit 1). Verified live: MH 23,594 MW; weather 27.0°C feels-30.4. Slot guard + prev/current parser disambiguation unit-checked.
 - [x] **GitHub Actions cron** (`.github/workflows/collect.yml`): sample hourly, cron every 15 min (~4× oversample vs Actions' ~75% skip), slot guard = idempotent; `workflow_dispatch` enabled for cron-job.org pinger fallback; auto-commits data back (`contents: write`). Schema break → red run.
-- [ ] **Krish to do:** review, `git init` + first commit + push to a public `grid-pulse` repo, then confirm the scheduled workflow runs & commits. (Sessions don't drive git.)
+- [x] **Repo live:** github.com/KrishSachdev/grid-pulse (public, main). Smoke-test run green — and it correctly *skipped* the already-collected 19:00 slot (slot guard proven in prod). Node-20 deprecation fixed (checkout@v5 / setup-python@v6).
+- [ ] Confirm scheduled cron actually fires + bot commits land (~24 readings/day). If Actions cron is too flaky → cron-job.org pinger on `workflow_dispatch`.
 - [ ] States: start Maharashtra only; add Delhi, Gujarat, Tamil Nadu, UP once MH is stable (one-line `STATES`/`WEATHER_POINTS` additions).
-- [ ] Historical backfill job (one-off): Grid-India PSP (per-state daily, 2013→) + Kaggle mirror → `data/history/`. Needs `xlrd` for the PSP `.xls`; API + parse recipe already proven in `DATA-SOURCES.md`.
+- [x] **Historical backfill DONE** (`collector/backfill_psp.py`, local one-off, needs `xlrd`+`openpyxl`): Grid-India webapi lists ALL 6,181 PSP files (2013→). **XLS only exists from ~Jan 2023** (earlier = PDF-only; Kaggle CC BY-SA mirror covers deep history if ever needed). **`data/history/psp/maharashtra.jsonl`: 1,195/1,195 listed days parsed (2023-04-01 → 2026-07-11), only 3 calendar days have no XLS anywhere.** Peak 20.1–32.3 GW, mean 26.5 GW; monthly means show textbook seasonality (Feb–Mar high ~29 GW, July monsoon low ~23.4 GW). xlsx era + legacy-portal 404 fallback handled. Resumable — re-run any time to top up.
 
 ## Phase 2 — Backtesting (offline, honest)
 

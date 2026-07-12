@@ -8,4 +8,7 @@ venv/
 .DS_Store
 Thumbs.db
 
+# Raw PSP XLS download cache (parsed output goes to data/history/, which IS tracked)
+cache/
+
 # NOTE: data/ is intentionally NOT ignored — the collected dataset is the point.

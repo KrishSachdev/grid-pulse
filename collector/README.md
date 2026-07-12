@@ -16,8 +16,21 @@ Daily-granularity backfill (2013→) comes separately from Grid-India PSP report
 |--------|--------------|--------|
 | `fetch_demand.py`  | Scrapes MH live "Demand Met" (MW) from `vidyutpravah.in/state-data/maharashtra` | `data/raw/demand/YYYY-MM-DD.jsonl` |
 | `fetch_weather.py` | Open-Meteo current-hour temp/RH/apparent for MH cities + population-weighted state aggregate | `data/raw/weather/YYYY-MM-DD.jsonl` |
+| `backfill_psp.py`  | **One-off/local** (needs `xlrd`): Grid-India daily PSP XLS → per-state daily peak MW + energy MU, FY2023-24→today | `data/history/psp/<state>.jsonl` |
 | `config.py`        | States, city points/weights, paths, cadence | — |
 | `common.py`        | IST time, slot flooring, HTTP-with-retry, JSONL I/O, logging | — |
+
+### Backfill notes (`backfill_psp.py`)
+- Lists all files via `POST webapi.grid-india.in/api/v1/file` (`_type: DAILY_PSP_REPORT`), downloads
+  from `webcdn.grid-india.in` into `cache/psp/` (gitignored), parses sheet `MOP_E`.
+- **XLS exists only from ~Jan 2023 (complete from FY 2023-24)**; older years are PDF-only —
+  deep history, if ever needed, comes from the Kaggle CC BY-SA mirror instead.
+- Resumable + idempotent: re-running only fetches/parses missing dates, then rewrites the
+  output sorted+deduped. Top up history any time with a plain re-run.
+- Sanity ranges (peak 1–60 GW, energy 100–2000 MU) refuse implausible parses → gap records
+  (`"ok": false`) instead of silent garbage.
+- Grid-India serves a broken TLS chain; the script uses an unverified-SSL context (same as
+  `curl -k`) for these two hosts only.
 
 ## Run locally
 ```bash
