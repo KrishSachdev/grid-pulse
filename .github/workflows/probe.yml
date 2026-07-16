@@ -1,0 +1,60 @@
+name: probe
+
+# Diagnostic (manual only): what can a GitHub runner actually reach?
+# Run this after changing collector networking or when demand fetches start failing.
+# Context: 2026-07-13 — vidyutpravah resets connections from runner IPs with the
+# collector's plain User-Agent; this probe tells us which workaround holds.
+
+on:
+  workflow_dispatch: {}
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: "1: vidyutpravah, plain UA (expect blocked)"
+        continue-on-error: true
+        run: |
+          curl -s -m 30 -A "grid-pulse/0.1" -o /dev/null -w "plain UA -> HTTP %{http_code}\n" \
+            "https://vidyutpravah.in/state-data/maharashtra" || echo "plain UA -> CONNECTION FAILED"
+
+      - name: "2: vidyutpravah, browser UA"
+        continue-on-error: true
+        run: |
+          curl -s -m 30 \
+            -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36" \
+            -H "Accept: text/html,application/xhtml+xml" -H "Accept-Language: en-US,en;q=0.9" \
+            -o page.html -w "browser UA -> HTTP %{http_code}, %{size_download} bytes\n" \
+            "https://vidyutpravah.in/state-data/maharashtra" || echo "browser UA -> CONNECTION FAILED"
+          grep -q "value_DemandMET_en" page.html 2>/dev/null \
+            && echo "browser UA -> DEMAND SPAN FOUND (collector will work)" \
+            || echo "browser UA -> demand span NOT found"
+
+      - name: "3: the real collector (fetch_demand as shipped)"
+        continue-on-error: true
+        run: python -m collector.fetch_demand && tail -2 data/raw/demand/*.jsonl
+
+      - name: "4: grid-india webapi (daily PSP fallback source)"
+        continue-on-error: true
+        run: |
+          curl -sk -m 30 -X POST -H "Content-Type: application/json" -H "Origin: https://grid-india.in" \
+            -d '{"_source":"GRDW","_type":"DAILY_PSP_REPORT"}' \
+            -o psp.json -w "webapi -> HTTP %{http_code}, %{size_download} bytes\n" \
+            "https://webapi.grid-india.in/api/v1/file" || echo "webapi -> CONNECTION FAILED"
+          grep -q "NLDC_PSP" psp.json 2>/dev/null && echo "webapi -> PSP LIST OK" || echo "webapi -> psp list NOT ok"
+
+      - name: "5: MERIT portal (failover live-demand source)"
+        continue-on-error: true
+        run: |
+          curl -s -m 30 -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" -o merit.html \
+            -w "meritindia -> HTTP %{http_code}, %{size_download} bytes\n" \
+            "https://meritindia.in/StateWiseDetails?StateName=Maharashtra" || echo "meritindia -> CONNECTION FAILED"
+          grep -q 'id="AllIndiaDemand"' merit.html 2>/dev/null \
+            && echo "meritindia -> DEMAND INPUT FOUND (failover will work)" \
+            || echo "meritindia -> demand input NOT found"

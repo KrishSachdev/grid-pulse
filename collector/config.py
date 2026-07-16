@@ -23,18 +23,21 @@ USER_AGENT = "grid-pulse/0.1 (+https://github.com/KrishSachdev)"
 DEMAND_SLOT_MINUTES = 60
 WEATHER_SLOT_MINUTES = 60
 
-# --- Demand: vidyutpravah live per-state "Demand Met" page -------------------
-# Per-state page is server-rendered (values are in the HTML, not an XHR).
+# --- Demand: two independent MoP live portals, tried in order ----------------
+# Both server-render the state's live "Demand Met" (values in HTML, no XHR).
+# vidyutpravah is the original source; MERIT is the failover (added 2026-07-16
+# after vidyutpravah went down for 3+ days and blocked GitHub-runner IPs).
 VIDYUTPRAVAH_URL = "https://vidyutpravah.in/state-data/{slug}"
+MERIT_URL = "https://meritindia.in/StateWiseDetails?StateName={merit_name}"
 
-# States to collect. `slug` is the vidyutpravah URL slug.
+# States to collect. `slug` = vidyutpravah URL slug; `merit_name` = MERIT param.
 STATES = {
-    "maharashtra": {"name": "Maharashtra"},
-    # Add once MH is stable (slugs verified on vidyutpravah.in):
-    # "delhi": {"name": "Delhi"},
-    # "gujarat": {"name": "Gujarat"},
-    # "tamil-nadu": {"name": "Tamil Nadu"},
-    # "uttar-pradesh": {"name": "Uttar Pradesh"},
+    "maharashtra": {"name": "Maharashtra", "merit_name": "Maharashtra"},
+    # Add once MH is stable (verify slug + merit_name on both portals):
+    # "delhi": {"name": "Delhi", "merit_name": "Delhi"},
+    # "gujarat": {"name": "Gujarat", "merit_name": "Gujarat"},
+    # "tamil-nadu": {"name": "Tamil Nadu", "merit_name": "Tamil Nadu"},
+    # "uttar-pradesh": {"name": "Uttar Pradesh", "merit_name": "Uttar Pradesh"},
 }
 
 # --- Weather: Open-Meteo (free, keyless, IST-aware) --------------------------

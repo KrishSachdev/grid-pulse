@@ -35,6 +35,13 @@ All findings below were confirmed against live endpoints, not assumed from docs.
   - Value is instantaneous, not an hourly integral — resampling policy (e.g. mean of the 4 quarter-hour polls, or the on-the-hour reading) must be fixed and documented for the scoreboard to be honest.
   - Schema-break alerting: if `value_DemandMET_en` disappears or parses to non-numeric, the collector must log a gap and alert (a silent parse failure would rot the dataset).
 
+## 1b. MERIT portal (meritindia.in) — live per-state demand ✅ FAILOVER (added 2026-07-16)
+
+- **Why it exists in this list:** vidyutpravah went down for 3+ days (13–16 Jul 2026, HTTP 500 → connection-dead) *and* resets connections from GitHub-runner IPs. MERIT is the Ministry of Power's merit-order-dispatch portal and carries the same live state demand.
+- **URL:** `https://meritindia.in/StateWiseDetails?StateName=Maharashtra` — plain GET, fast (~1 s), server-rendered.
+- **Extraction:** values ride in hidden inputs. **`id="AllIndiaDemand"` is misnamed — on a state page it holds the *selected state's* Demand Met (MW).** Also: `ISGSGen` = own generation, `Import_data` = import. Verified internally consistent twice (demand = own + import exactly) and against vidyutpravah (25,556 vs 25,413 MW ~7 min apart, <1%).
+- **Collector behaviour:** `fetch_demand.py` tries vidyutpravah → MERIT in order; each record's `source` field says which one answered. `error_kind: schema` only fires when a source *responds* but no longer parses.
+
 ## 2. Grid-India PSP daily reports (ex-POSOCO) — daily per-state ✅ BACKFILL + daily floor
 
 - **posoco.in is dead** (502, rebranded). New home: **grid-india.in** (Grid Controller of India Ltd).

@@ -72,6 +72,31 @@ for the hour, plus the per-city breakdown under `cities`.
   `error_kind:"schema"` and makes `fetch_demand` exit **1**, which the workflow turns into
   a red run — the one failure that must not pass silently.
 
+## Known issue log
+- **2026-07-13 — vidyutpravah blocks GitHub-runner IPs** with the plain collector UA
+  (every Actions fetch: `Connection reset by peer`; local fetches fine). Mitigation:
+  `fetch_demand` now sends browser-like headers (`BROWSER_HEADERS`). Run the manual
+  `probe` workflow to re-test what a runner can reach; if vidyutpravah stays blocked
+  from runners entirely, fall back to local collection (Task Scheduler) for hourly +
+  Grid-India PSP (reachable check via probe step 4) for daily actuals.
+- **2026-07-13 — GitHub cron throttling:** scheduled runs arrive 1–4 h apart despite
+  `*/15` (8 runs/day ≈ 1/3 of hourly slots). Fix: external pinger (below).
+
+## Deterministic cadence: cron-job.org pinger (one-time setup, ~10 min)
+GitHub's native cron is best-effort and was observed firing every 1–4 h. The fix is an
+external pinger calling `workflow_dispatch` on a real clock:
+
+1. **Fine-grained PAT** (github.com → Settings → Developer settings → Fine-grained tokens):
+   repository access = only `grid-pulse`; permissions = **Actions: Read and write**;
+   expiry 1 year. Copy the token.
+2. **cron-job.org** (free): create a job, every 15 min, method POST, URL
+   `https://api.github.com/repos/KrishSachdev/grid-pulse/actions/workflows/collect.yml/dispatches`
+   Headers:
+   `Authorization: Bearer <PAT>` · `Accept: application/vnd.github+json` ·
+   `Content-Type: application/json` — Body: `{"ref":"main"}`
+3. Verify: Actions tab shows `workflow_dispatch` runs arriving every 15 min.
+   The slot guard makes the native cron + pinger overlap harmless.
+
 ## GitHub Actions (`collect.yml`)
 Runs the collectors and commits new `data/` back to the repo (`contents: write`).
 `workflow_dispatch` is enabled so an external pinger (cron-job.org) can trigger it for
