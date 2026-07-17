@@ -5,3 +5,4 @@
 {"ts_ist": "2026-07-17T05:44:15+05:30", "ts_utc": "2026-07-17T00:14:15+00:00", "slot": "2026-07-17T05:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
 {"ts_ist": "2026-07-17T09:13:35+05:30", "ts_utc": "2026-07-17T03:43:35+00:00", "slot": "2026-07-17T09:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
 {"ts_ist": "2026-07-17T11:35:56+05:30", "ts_utc": "2026-07-17T06:05:56+00:00", "slot": "2026-07-17T11:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
+{"ts_ist": "2026-07-17T14:00:01+05:30", "ts_utc": "2026-07-17T08:30:01+00:00", "slot": "2026-07-17T14:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
