@@ -1,1 +1,2 @@
 {"ts_ist": "2026-07-20T00:10:43+05:30", "ts_utc": "2026-07-19T18:40:43+00:00", "slot": "2026-07-20T00:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
+{"ts_ist": "2026-07-20T01:26:48+05:30", "ts_utc": "2026-07-19T19:56:48+00:00", "slot": "2026-07-20T01:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
