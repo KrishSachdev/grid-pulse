@@ -8,3 +8,4 @@
 {"ts_ist": "2026-07-27T16:26:56+05:30", "ts_utc": "2026-07-27T10:56:56+00:00", "slot": "2026-07-27T16:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
 {"ts_ist": "2026-07-27T19:12:54+05:30", "ts_utc": "2026-07-27T13:42:54+00:00", "slot": "2026-07-27T19:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
 {"ts_ist": "2026-07-27T21:34:40+05:30", "ts_utc": "2026-07-27T16:04:40+00:00", "slot": "2026-07-27T21:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
+{"ts_ist": "2026-07-27T23:27:00+05:30", "ts_utc": "2026-07-27T17:57:00+00:00", "slot": "2026-07-27T23:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
