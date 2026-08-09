@@ -4,7 +4,14 @@ Stdlib only — this runs on GitHub Actions cron without a `pip install` step.
 Design rules (from the jam-genome playbook): never crash on a single-source
 failure, log gaps explicitly, and be idempotent per slot so the cron can be
 safely over-scheduled.
+
+Must stay compatible with the oldest Python we deploy on: the Synology NAS ships
+3.8, so the `from __future__` import below is what lets us write modern type
+annotations (`dict | None`, `list[dict]`) without them being evaluated at runtime.
+Keep it at the top of every collector module.
 """
+from __future__ import annotations
+
 import json
 import logging
 import sys

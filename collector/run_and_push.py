@@ -26,6 +26,8 @@ SETUP (Windows PC — fallback, only collects while the PC is on)
 Safe to run as often as you like: the collectors' slot guard keeps one reading
 per hour, and a run with nothing new simply exits without committing.
 """
+from __future__ import annotations
+
 import subprocess
 import sys
 from pathlib import Path

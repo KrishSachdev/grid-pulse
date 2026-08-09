@@ -16,6 +16,8 @@ Usage (from repo root):
     python -m collector.backfill_psp                 # default: 2023-04-01 -> today
     python -m collector.backfill_psp --since 2024-01-01
 """
+from __future__ import annotations
+
 import argparse
 import json
 import re

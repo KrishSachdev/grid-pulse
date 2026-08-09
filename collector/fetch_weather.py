@@ -13,6 +13,8 @@ Stdlib only. Same never-crash / idempotent-per-slot contract as fetch_demand.
 
 Run:  python -m collector.fetch_weather      (from the repo root)
 """
+from __future__ import annotations
+
 import json
 import sys
 from pathlib import Path
