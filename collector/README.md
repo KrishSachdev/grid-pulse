@@ -72,6 +72,17 @@ for the hour, plus the per-city breakdown under `cities`.
   `error_kind:"schema"` and makes `fetch_demand` exit **1**, which the workflow turns into
   a red run — the one failure that must not pass silently.
 
+## ⚠️ Where each collector runs (read this first)
+
+| Collector | Runs on | Why |
+|---|---|---|
+| `fetch_demand` | **A machine in India** (NAS/PC) via `run_and_push.py` | GitHub runners **cannot reach** vidyutpravah *or* meritindia — 343/343 scheduled attempts failed (2026-07-16 → 08-10) with `URLError`, while the same URLs return HTTP 200 from India at the same moments. Not a UA/WAF issue: browser headers and a second independent portal both failed. |
+| `fetch_weather` | GitHub Actions (`collect.yml`) | Open-Meteo is globally reachable; 372 good hours collected. |
+| `backfill_psp` | Local, on demand | One-off history top-up. |
+
+Re-test the block any time with the manual **`probe`** workflow (tests both portals,
+the real collector, and the Grid-India API from a runner).
+
 ## Known issue log
 - **2026-07-13 — vidyutpravah blocks GitHub-runner IPs** with the plain collector UA
   (every Actions fetch: `Connection reset by peer`; local fetches fine). Mitigation:
@@ -80,7 +91,13 @@ for the hour, plus the per-city breakdown under `cities`.
   from runners entirely, fall back to local collection (Task Scheduler) for hourly +
   Grid-India PSP (reachable check via probe step 4) for daily actuals.
 - **2026-07-13 — GitHub cron throttling:** scheduled runs arrive 1–4 h apart despite
-  `*/15` (8 runs/day ≈ 1/3 of hourly slots). Fix: external pinger (below).
+  `*/15` (~10–12 runs/day, not 96). Confirmed over 30 days: weather averaged 12.4 of
+  24 hours/day. Fix: external pinger (below), or the local runner's own scheduler.
+- **2026-08-10 — RESOLVED (root cause): runners are geo/datacenter-blocked from
+  Indian grid portals.** Both sources, 343 consecutive failures, zero successes;
+  same URLs 200 OK from India. `collect.yml` is now **weather-only** and demand moved
+  to `run_and_push.py` on India-side hardware. Cost of the diagnosis: 4 weeks of
+  hourly demand history (weather + the 1,199-day daily series are unaffected).
 
 ## Deterministic cadence: cron-job.org pinger (one-time setup, ~10 min)
 GitHub's native cron is best-effort and was observed firing every 1–4 h. The fix is an

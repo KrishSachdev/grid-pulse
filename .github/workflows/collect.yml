@@ -1,13 +1,14 @@
 name: collect
 
-# Grid Pulse data collector — runs the vidyutpravah demand + Open-Meteo weather
-# collectors and commits new readings back to the repo (the on-the-record dataset).
+# Grid Pulse WEATHER collector — Open-Meteo only; commits readings back to the repo.
+# Demand is collected from India by collector/run_and_push.py (see that file for why).
 #
 # jam-genome lesson applied: GitHub Actions silently skips a large fraction of cron
-# slots. We sample HOURLY (see collector/config.py) but schedule every 15 min so each
-# hourly slot gets ~4 attempts; the collectors' slot guard makes every run idempotent,
-# so over-scheduling never duplicates data. If cron timing is still too unreliable,
-# an external pinger (cron-job.org -> workflow_dispatch) gives deterministic firing.
+# slots (measured here: ~10-12 runs/day, not 96). We sample HOURLY (see
+# collector/config.py) but schedule every 15 min so each hourly slot gets several
+# attempts; the slot guard makes every run idempotent, so over-scheduling never
+# duplicates data. For deterministic firing, an external pinger (cron-job.org ->
+# workflow_dispatch) is documented in collector/README.md.
 
 on:
   schedule:
@@ -32,12 +33,15 @@ jobs:
         with:
           python-version: "3.12"   # collectors are stdlib-only; no pip install needed
 
-      - name: Collect demand + weather
+      # WEATHER ONLY. Demand is collected by collector/run_and_push.py on hardware
+      # in India: GitHub runners cannot reach vidyutpravah or meritindia at all
+      # (343/343 scheduled attempts failed 2026-07-16 -> 08-10 with URLError, while
+      # the same URLs return 200 from India). Running it here only manufactured
+      # identical gap records. Re-test any time with the `probe` workflow.
+      - name: Collect weather
         id: collect
         run: |
           set +e
-          python -m collector.fetch_demand
-          echo "demand_exit=$?" >> "$GITHUB_OUTPUT"
           python -m collector.fetch_weather
           echo "weather_exit=$?" >> "$GITHUB_OUTPUT"
 
@@ -60,10 +64,8 @@ jobs:
           done
           echo "::warning::could not push collected data after 3 attempts"
 
-      # A schema break (vidyutpravah changed shape -> demand unparseable) is the one
-      # failure mode that would silently rot the dataset. Surface it as a red run.
-      - name: Alert on schema break
-        if: always() && steps.collect.outputs.demand_exit != '0'
+      - name: Alert on weather collector failure
+        if: always() && steps.collect.outputs.weather_exit != '0'
         run: |
-          echo "::error::fetch_demand exited ${{ steps.collect.outputs.demand_exit }} — likely a vidyutpravah schema break. Check collector/fetch_demand.py FIELDS/regex."
+          echo "::error::fetch_weather exited ${{ steps.collect.outputs.weather_exit }} — check Open-Meteo response shape in collector/fetch_weather.py."
           exit 1

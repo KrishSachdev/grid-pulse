@@ -1,1 +1,2 @@
 {"ts_ist": "2026-08-10T00:33:18+05:30", "ts_utc": "2026-08-09T19:03:18+00:00", "slot": "2026-08-10T00:00", "state": "maharashtra", "ok": false, "error_kind": "fetch", "error": "vidyutpravah: URLError; merit: URLError"}
+{"ts_ist": "2026-08-10T00:48:23+05:30", "ts_utc": "2026-08-09T19:18:23+00:00", "slot": "2026-08-10T00:00", "state": "maharashtra", "ok": true, "source": "vidyutpravah", "url": "https://vidyutpravah.in/state-data/maharashtra", "demand_met_mw": 21701, "prev_demand_met_mw": 22118}
