@@ -1,0 +1,12 @@
+# Data files are append-only JSONL: two collectors writing the same day-file must
+# never produce a merge conflict. `merge=union` keeps BOTH sides' lines, which is
+# exactly right here — every line is an independent reading, and the collectors
+# dedupe by slot anyway. Without this, any overlap between the NAS runner and the
+# Actions bot stops a rebase dead (observed 2026-08-10).
+data/**/*.jsonl merge=union
+
+# Keep line endings sane across the Windows PC and the Linux NAS.
+*.py text eol=lf
+*.sh text eol=lf
+*.yml text eol=lf
+*.jsonl text eol=lf

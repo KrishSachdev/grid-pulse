@@ -16,8 +16,11 @@ SETUP (Synology NAS — preferred, it's always on)
     Control Panel → Task Scheduler → Create → Scheduled Task → User-defined script
     Schedule: every 15 min.  Command:
         cd /volume1/<path>/grid-pulse && /usr/local/bin/python3 -m collector.run_and_push
-    Git auth: store a PAT once via
-        git remote set-url origin https://<PAT>@github.com/KrishSachdev/grid-pulse.git
+    Git auth: this script never prompts (see `git()` below), so store the credential
+    ONCE interactively, from the repo directory:
+        git config credential.helper store
+        git push          # enter username + PAT at the prompt; saved to ~/.git-credentials
+    Everything after that is unattended.
 
 SETUP (Windows PC — fallback, only collects while the PC is on)
     Task Scheduler → Create Task → Trigger: repeat every 15 min →
@@ -28,6 +31,7 @@ per hour, and a run with nothing new simply exits without committing.
 """
 from __future__ import annotations
 
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -41,8 +45,15 @@ log = common.get_logger("run_and_push")
 
 
 def git(*args: str, check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(["git", *args], cwd=REPO_ROOT, check=check,
-                          capture_output=True, text=True)
+    """Run a git command. Never let it block a scheduled run waiting for input:
+    GIT_TERMINAL_PROMPT=0 makes a missing credential fail fast instead of hanging.
+    (Store the credential once with an interactive `git push`; see module docstring.)"""
+    env = {**os.environ, "GIT_TERMINAL_PROMPT": "0"}
+    r = subprocess.run(["git", *args], cwd=REPO_ROOT, check=check,
+                       capture_output=True, text=True, env=env)
+    if r.returncode and (r.stderr or "").strip():
+        log.warning("git %s -> %s", " ".join(args), r.stderr.strip().splitlines()[-1])
+    return r
 
 
 def main() -> int:

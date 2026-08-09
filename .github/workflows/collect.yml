@@ -10,10 +10,15 @@ name: collect
 # duplicates data. For deterministic firing, an external pinger (cron-job.org ->
 # workflow_dispatch) is documented in collector/README.md.
 
+# SCHEDULE DISABLED 2026-08-10. The NAS runner (collector/run_and_push.py) now collects
+# BOTH demand and weather every 15 min from India, which makes it the single writer of
+# data/ — two schedulers writing the same day-files just produced rebase conflicts.
+# Kept dispatch-only as a backup: if the NAS is ever down, run this manually to keep the
+# weather series alive. To re-enable automatic weather collection, uncomment the cron.
 on:
-  schedule:
-    - cron: "*/15 * * * *"   # every 15 min (UTC); oversamples the hourly slot grid
-  workflow_dispatch: {}       # manual run + external-pinger fallback
+  # schedule:
+  #   - cron: "*/15 * * * *"
+  workflow_dispatch: {}
 
 # Never let two runs push at once.
 concurrency:
