@@ -1,1 +1,2 @@
 {"ts_ist": "2026-08-17T00:00:02+05:30", "ts_utc": "2026-08-16T18:30:02+00:00", "slot": "2026-08-17T00:00", "state": "maharashtra", "ok": true, "source": "vidyutpravah", "url": "https://vidyutpravah.in/state-data/maharashtra", "demand_met_mw": 21784, "prev_demand_met_mw": 19803}
+{"ts_ist": "2026-08-17T01:00:02+05:30", "ts_utc": "2026-08-16T19:30:02+00:00", "slot": "2026-08-17T01:00", "state": "maharashtra", "ok": true, "source": "vidyutpravah", "url": "https://vidyutpravah.in/state-data/maharashtra", "demand_met_mw": 21625, "prev_demand_met_mw": 19272}
