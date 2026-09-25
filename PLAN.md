@@ -4,6 +4,8 @@
 
 **Why it's novel (verified July 2026):** Academic studies exist (offline XGBoost state-level demand models, an MIT thesis on data-poor Indian forecasting — see CONTEXT.md) and government dashboards *display* demand, but **nobody runs an open operational system with an on-the-record forecast history**. "My model has been publicly on the record for N days with X% MAPE vs baseline" is a claim no student portfolio makes. The git commit history is the tamper-proof timestamp.
 
+**Status (2026-09-26):** Phase 0 ✅ · Phase 1 ✅ — NAS collecting Maharashtra demand + weather hourly, 100% coverage since 2026-08-10 · **Next: Phase 2 (backtesting)** — not started.
+
 **Deliverables:**
 1. An accumulated open dataset of Indian state-level demand + weather
 2. A daily operational forecast (Maharashtra first, then ~4 more states)
@@ -29,21 +31,34 @@ The whole project stands on finding a reliable hourly (or ≤hourly) per-state d
 
 ## Phase 1 — Collector (reuse the jam-genome playbook)
 
-**🟡 IN PROGRESS (2026-07-12): MH live collectors built, tested against live sources, workflow written. Not yet on GitHub (Krish to commit/push + enable Actions). Backfill still TODO.**
+**✅ PHASE 1 COMPLETE — collecting 24/7 from the Synology NAS since 2026-08-10.** Verified 2026-09-26 against the GitHub repo: **47/47 days, 1,128/1,128 hours of both demand and weather captured (100%, zero gaps)**. Demand range in that period 19,183–30,515 MW. Sources: vidyutpravah 1,108 h, MERIT failover 21 h (the failover has earned its keep).
 
-- [x] `collector/fetch_demand.py` (vidyutpravah MH `value_DemandMET_en`) + `collector/fetch_weather.py` (Open-Meteo, 4 MH cities, pop-weighted) → `data/raw/{demand,weather}/YYYY-MM-DD.jsonl`. Stdlib-only, retries/backoff, never crash, gap records, schema-break detection (exit 1). Verified live: MH 23,594 MW; weather 27.0°C feels-30.4. Slot guard + prev/current parser disambiguation unit-checked.
-- [x] **GitHub Actions cron** (`.github/workflows/collect.yml`): sample hourly, cron every 15 min (~4× oversample vs Actions' ~75% skip), slot guard = idempotent; `workflow_dispatch` enabled for cron-job.org pinger fallback; auto-commits data back (`contents: write`). Schema break → red run.
-- [x] **Repo live:** github.com/KrishSachdev/grid-pulse (public, main). Smoke-test run green — and it correctly *skipped* the already-collected 19:00 slot (slot guard proven in prod). Node-20 deprecation fixed (checkout@v5 / setup-python@v6).
-- [x] Cron fires and bot commits land — **but two problems found on day 1 (2026-07-13):**
-  **(a) vidyutpravah resets connections from GitHub-runner IPs** (every Actions demand fetch = ECONNRESET while local fetches succeeded; weather unaffected). Mitigations shipped: browser-like headers in `fetch_demand`; manual `probe` workflow to test what runners can reach (vidyutpravah×2 UAs, real collector, grid-india webapi, meritindia alternate). Verdict pending a probe run when the site is up.
-  **(b) GitHub cron throttled to ~1 run per 1–4 h** (8/day, not 96) → cron-job.org pinger required (setup guide in `collector/README.md`; needs Krish: fine-grained PAT + free pinger account).
-  Also observed: vidyutpravah itself went down (HTTP 500) evening of 07-13 — site flakiness is real; gap records + oversampling are the right design. If runners stay hard-blocked: local Task Scheduler collection for hourly + PSP daily actuals from Actions (probe step 4 tests it).
-  **Update 2026-08-10 — ROOT CAUSE, and the fix:** the MERIT failover shipped and ran, and **both portals failed from GitHub runners on all 343 scheduled attempts (2026-07-16 → 08-10, zero successes)** while returning HTTP 200 from India at the same moments → **runners are geo/datacenter-blocked from Indian grid portals**, not UA-filtered. Weather was fine throughout (372 good hours). Fix shipped: `collect.yml` is now **weather-only**; demand collection moves to **`collector/run_and_push.py`** (collect → commit → push) run every 15 min from India-side hardware — Synology NAS preferred (always on; Krish already runs collectors there for HW Radar), Windows Task Scheduler as fallback. **Krish to do: push, then set up the NAS/PC scheduled task (+ PAT remote for the NAS).** Cost: ~4 weeks of hourly demand history lost; daily series + weather unaffected.
-  **Update 2026-07-16:** vidyutpravah stayed down ~3 days (back, but flaky) and the 07-13 fixes were never pushed → 3 days of demand gaps from Actions (weather fine, gap-logging exemplary). **Failover source added: MERIT portal** (`meritindia.in/StateWiseDetails?StateName=...`, hidden input `AllIndiaDemand` = state demand met; cross-validated against vidyutpravah <1%). `fetch_demand` now tries vidyutpravah → MERIT; record's `source` field says which answered. PSP history topped up to 07-15 (1,199 days). **Still pending Krish: push fixes, run probe once, set up pinger.**
-- [ ] States: start Maharashtra only; add Delhi, Gujarat, Tamil Nadu, UP once MH is stable (one-line `STATES`/`WEATHER_POINTS` additions).
-- [x] **Historical backfill DONE** (`collector/backfill_psp.py`, local one-off, needs `xlrd`+`openpyxl`): Grid-India webapi lists ALL 6,181 PSP files (2013→). **XLS only exists from ~Jan 2023** (earlier = PDF-only; Kaggle CC BY-SA mirror covers deep history if ever needed). **`data/history/psp/maharashtra.jsonl`: 1,195/1,195 listed days parsed (2023-04-01 → 2026-07-11), only 3 calendar days have no XLS anywhere.** Peak 20.1–32.3 GW, mean 26.5 GW; monthly means show textbook seasonality (Feb–Mar high ~29 GW, July monsoon low ~23.4 GW). xlsx era + legacy-portal 404 fallback handled. Resumable — re-run any time to top up.
+**How it runs now:**
+- **Demand + weather → NAS (DS423, `192.168.1.10`).** DSM Task Scheduler, every 15 min, user `KrishSachdev`: `sh /var/services/homes/KrishSachdev/gridpulse/grid-pulse/collector/run_nas.sh` → `collector/run_and_push.py` (collect → commit → push, author `grid-pulse-nas`). Hourly slot grid + slot guard, so 4 attempts/hour and one reading per hour.
+- **Node-local clone** at `~/gridpulse/grid-pulse`, deliberately *not* the Synology Drive-synced folder (Drive syncing a live `.git` between PC and NAS would corrupt it). Log: `~/gridpulse/collect.log`.
+- **Credential:** fine-grained PAT (Contents: read+write, `grid-pulse` only) stored in `~/.git-credentials` on the NAS. **Expires ~Aug 2027 (1 year from 2026-08-10) — renew before then or pushes stop silently.**
+- **NAS Python is 3.8.15** → every collector module starts with `from __future__ import annotations`; don't use 3.9+ features (dict `|`, `removeprefix`, `zoneinfo`, `match`).
+- **`.gitattributes`: `data/**/*.jsonl merge=union`** — two writers on the same day-file merge instead of conflicting.
+- **GitHub Actions:** `collect.yml` schedule **disabled** (dispatch-only backup for weather if the NAS is down); `probe.yml` = manual diagnostic of what a runner can reach. cron-job.org pinger **not needed** — the NAS schedule is deterministic.
+
+**Checklist:**
+- [x] `collector/fetch_demand.py` (vidyutpravah → MERIT failover) + `collector/fetch_weather.py` (Open-Meteo, 4 MH cities, pop-weighted) → `data/raw/{demand,weather}/YYYY-MM-DD.jsonl`. Stdlib-only, retries/backoff, never crash, gap records, schema-break detection.
+- [x] Repo live: github.com/KrishSachdev/grid-pulse (public, `main`).
+- [x] Hourly collection running from India-side hardware (NAS) — see above.
+- [x] **Historical backfill** (`collector/backfill_psp.py`, local one-off, needs `xlrd` + `openpyxl`): `data/history/psp/maharashtra.jsonl` = **1,199 days, 2023-04-01 → 2026-07-15**. XLS only exists from ~Jan 2023 (earlier is PDF-only; the Kaggle CC BY-SA mirror covers 2013+ if ever needed). Peak 20.1–32.3 GW; clean seasonality (Feb–Mar ~29 GW high, July monsoon ~23.4 GW low). **Not topped up since 2026-07-16 — re-run before Phase 2** (resumable; only fetches the missing days).
+- [ ] States: Maharashtra only so far; add Delhi, Gujarat, Tamil Nadu, UP (one-line `STATES` / `WEATHER_POINTS` additions — verify slug + MERIT name on both portals first).
+
+**Deployment history (why it runs on the NAS, not Actions):**
+- **2026-07-12** — launched on GitHub Actions cron.
+- **2026-07-13** — two problems on day 1: demand fetches from runners failed (`Connection reset by peer`) while working from India; GitHub cron throttled to ~8–12 runs/day instead of 96.
+- **2026-07-13 → 16** — vidyutpravah itself was down ~3 days. Added the **MERIT failover** (`meritindia.in/StateWiseDetails?StateName=...`; hidden input `AllIndiaDemand` = the state's demand met; cross-checked against vidyutpravah <1%) and browser-like headers.
+- **2026-07-16 → 08-10** — **343 of 343 scheduled Actions attempts failed on both portals** while the same URLs returned HTTP 200 from India → **GitHub runners are geo/datacenter-blocked from Indian grid portals**; headers can't fix it. Weather was fine throughout.
+- **2026-08-10** — demand collection moved to the NAS (`run_and_push.py`), Python 3.8 compat, union-merge for data files, Actions switched to dispatch-only. First complete 24-hour day the same day; unbroken since.
+- **Cost:** hourly demand for ~2026-07-13 → 08-09 is lost for good (no public archive exists). Weather and the daily PSP series are unaffected.
 
 ## Phase 2 — Backtesting (offline, honest)
+
+**Not started.** Prerequisites: top up PSP history (stops 2026-07-15 — `python -m collector.backfill_psp --since 2026-07-15`), and backfill Open-Meteo *archive* weather for 2023-04 onward to match the training period (the archive API returns years per request).
 
 - Baselines that must be beaten and must stay on the scoreboard forever: **persistence** (same hour yesterday) and **seasonal-naive** (same hour, same weekday last week).
 - Model v1: LightGBM/XGBoost — lags (24h/48h/168h), calendar features (weekday, holiday calendar incl. Indian festivals — Diwali is a famous demand event), weather forecast features (temp/humidity/heat-index; use *forecast* weather in features, not actuals — the operational system won't have actuals).
@@ -72,6 +87,7 @@ The whole project stands on finding a reliable hourly (or ≤hourly) per-state d
 ## Risks & honest notes
 
 - **#1 risk is Phase 0:** hourly per-state data may not be cleanly accessible — that's why recon precedes code, and why the daily-granularity pivot is pre-agreed as an acceptable floor.
+- **Collection must run from India.** Hosted CI (GitHub runners) is geo-blocked from the grid portals. The NAS is therefore a single point of failure: a power or network outage there means gaps (logged honestly, and weather can be kept alive via the dispatch-only Actions workflow). Also watch the NAS PAT's expiry (~Aug 2027).
 - Source format drift (gov portals redesign without notice) — collector must alert on schema breaks (a failed-parse day that goes unnoticed kills the scoreboard's credibility).
 - Actuals get revised — score against first-published actuals and note the policy openly.
 - A full seasonal cycle takes a year — fine; the scoreboard is meaningful from week 2, and backfill covers seasonality for training.
@@ -83,8 +99,9 @@ The whole project stands on finding a reliable hourly (or ≤hourly) per-state d
 | When | What |
 |------|------|
 | Session 1 | ✅ Phase 0 recon → DATA-SOURCES.md; hourly = GO (live via vidyutpravah collector), daily model also viable with PSP backfill |
-| Week 1 | Collector live on Actions (MH), backfill landed |
-| Weeks 2–4 | Backtesting; beat seasonal-naive convincingly |
-| Week 4+ | Operational forecasts on the record, scoreboard starts |
-| Weeks 6–8 | Dashboard + portfolio row |
+| Week 1 (07-12) | ✅ Collector + 1,195-day PSP backfill landed; Actions demand collection turned out to be blocked (see Phase 1 history) |
+| Week 5 (08-10) | ✅ Collector moved to the NAS — 100% hourly coverage since |
+| Next | Phase 2 backtesting; beat seasonal-naive convincingly |
+| After that | Operational forecasts on the record, scoreboard starts |
+| Then | Dashboard + portfolio row (once the scoreboard has ≥2 weeks) |
 | Ongoing | More states, paper draft when 60–90 days of record exist |
