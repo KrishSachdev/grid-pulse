@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grid Pulse — Maharashtra demand dashboard</title>
+<meta name="description" content="Live electricity demand collection dashboard for Maharashtra, India. On-the-record data collection; forecasting not started yet.">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <h1>Grid Pulse</h1>
+    <div class="sub">Maharashtra electricity demand — data collection dashboard</div>
+  </header>
+
+  <div id="status" class="status-line">Loading data from GitHub…</div>
+
+  <div class="stat-row" id="statRow" style="display:none">
+    <div class="stat"><div class="n" id="statLatestDemand">–</div><div class="l">Latest demand (MW)</div></div>
+    <div class="stat"><div class="n" id="statPeak">–</div><div class="l" id="statPeakLabel">Today's peak (MW)</div></div>
+    <div class="stat"><div class="n" id="statCoverage">–</div><div class="l">Coverage, last 14d</div></div>
+    <div class="stat"><div class="n" id="statDays">–</div><div class="l">Full days (before today)</div></div>
+  </div>
+
+  <div class="grid two-col">
+    <div class="card">
+      <h2>Today vs. same day last week</h2>
+      <p class="desc">Maharashtra hourly "Demand Met" (MW). Gaps in the line are hours the collector could not reach a source.</p>
+      <svg id="chartWeek" viewBox="0 0 460 240" preserveAspectRatio="xMidYMid meet"></svg>
+      <div class="legend">
+        <span><span class="swatch" style="background:var(--accent)"></span><span id="legToday">today</span></span>
+        <span><span class="swatch" style="background:var(--accent-2)"></span><span id="legLastWeek">last week</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Daily peak demand</h2>
+      <p class="desc">Highest MW reading captured each day, last 14 days.</p>
+      <svg id="chartPeak" viewBox="0 0 460 240" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+
+  <div class="card health-wrap" style="margin-top:16px">
+    <h2>Collection health</h2>
+    <p class="desc">Hours successfully captured out of 24, per day (last 14 days). Green = complete, yellow = partial, red = mostly missed.</p>
+    <div class="health-strip" id="healthStrip"></div>
+  </div>
+
+  <div class="grid two-col" style="margin-top:16px">
+    <div class="card">
+      <h2>Temperature vs. demand</h2>
+      <p class="desc">Each point is one hourly reading, last 14 days. Maharashtra population-weighted temperature.</p>
+      <svg id="chartScatter" viewBox="0 0 460 240" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+
+    <div class="card">
+      <h2>About this data</h2>
+      <p class="desc" style="margin-bottom:8px">
+        Collected hourly by a small script on a home server since <strong>10 August 2026</strong>,
+        from the Ministry of Power's public live grid dashboards. Forecasting has
+        <strong>not started</strong> — this page shows collected data only, no predictions.
+      </p>
+      <p class="desc" style="margin-bottom:0">
+        Data, source, and methodology: see the
+        <a href="https://github.com/KrishSachdev/grid-pulse#readme" target="_blank" rel="noopener">project README</a>
+        and <a href="https://github.com/KrishSachdev/grid-pulse/blob/main/PLAN.md" target="_blank" rel="noopener">PLAN.md</a>.
+      </p>
+    </div>
+  </div>
+
+  <footer>
+    <div id="lastUpdated">Last updated: —</div>
+    <div>Data source: <a href="https://raw.githubusercontent.com/KrishSachdev/grid-pulse/main/data/" target="_blank" rel="noopener">raw.githubusercontent.com/KrishSachdev/grid-pulse</a> · fetched live in your browser, no build step.</div>
+  </footer>
+</div>
+
+<script src="app.js?v=2026-09-26b"></script>
+</body>
+</html>

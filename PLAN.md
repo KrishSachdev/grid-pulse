@@ -56,6 +56,19 @@ The whole project stands on finding a reliable hourly (or ≤hourly) per-state d
 - **2026-08-10** — demand collection moved to the NAS (`run_and_push.py`), Python 3.8 compat, union-merge for data files, Actions switched to dispatch-only. First complete 24-hour day the same day; unbroken since.
 - **Cost:** hourly demand for ~2026-07-13 → 08-09 is lost for good (no public archive exists). Weather and the daily PSP series are unaffected.
 
+## Data-quality check — 2026-09-26 (full dataset, downloaded fresh from GitHub)
+
+Ran a Python check over every file in `data/raw/demand/` and `data/raw/weather/` on GitHub (77 day-files each, **2026-07-12 → 2026-09-26**, 1,528 demand + 1,612 weather attempt-records). Numbers below are from that check, not from memory:
+
+- **Hours captured, full history:** demand 1,135 ok readings / 1,224 possible hours in the 51 calendar days that have any data (92.7%) — the shortfall is entirely the known 2026-07-13→08-09 GitHub-runner geo-block (see Phase 1 history) plus today's in-progress day, not a new problem. Weather: 1,504 / 1,848 (81.3%) over the same span, same known-cause days plus the pre-NAS Actions cron-throttling that also hit weather.
+- **NAS era only (2026-08-10 → 2026-09-25, 47 full days) — independently re-verified:** **demand 1,128/1,128 hours (100%) and weather 1,128/1,128 hours (100%).** Matches the Phase 1 claim above exactly, from a fresh download rather than the earlier check.
+- **Gaps:** all gap records are honest (`"ok": false`) — demand 393 gaps, all `error_kind: "fetch"` (pre-NAS connection failures); weather 108 gaps, mostly early-July `"no_city_data"` transients. No silent drops: every missing hour has a gap record explaining why.
+- **Duplicates:** demand has **zero** duplicate hourly slots (1,135 unique slots for 1,135 ok readings). Weather has **exactly one**: slot `2026-08-10T01:00` was written twice, 9 minutes apart, both `ok: true` with the identical temperature (24.94°C) — landed on the day collection cut over from Actions to the NAS, harmless (same value), but worth knowing the slot guard wasn't airtight across that one cutover moment. No other duplicates found anywhere in either dataset.
+- **Impossible values / outliers:** none. Demand range 19,183–30,515 MW, entirely inside a plausible Maharashtra band (never below ~19 GW or above ~31 GW — no negative, zero, or absurd values). Weather temperature range 23.1–31.2°C, plausible for the four MH cities year-round. No missing `demand_met_mw`/`temp_c` fields on any `ok: true` record, no non-numeric values.
+- **Units:** demand is in MW (instantaneous "Demand Met", not an energy total — documented in `collector/README.md`); weather is °C (temp/apparent) and % (relative humidity). Consistent across every record checked.
+- **Demand vs weather time alignment:** every one of the 1,135 demand hourly slots has a matching weather reading for the same slot (zero orphans). `ts_ist` and `ts_utc` on every demand record represent the same instant (checked to the second, 1,135/1,135 agree) — the UTC/IST conversion is correct. Filenames are the **IST calendar day** as documented (not UTC) — checked all 1,135 demand records, zero mismatches between a record's filename day and its own IST slot day, so there's no day-boundary bucketing bug (unlike a past gotcha on a different project).
+- **Conclusion:** the dataset is clean enough to build on. The only real gap is the well-understood pre-NAS period; since the NAS took over on 2026-08-10 the pipeline has been exactly as good as claimed.
+
 ## Phase 2 — Backtesting (offline, honest)
 
 **Not started.** Prerequisites: top up PSP history (stops 2026-07-15 — `python -m collector.backfill_psp --since 2026-07-15`), and backfill Open-Meteo *archive* weather for 2023-04 onward to match the training period (the archive API returns years per request).
@@ -93,6 +106,32 @@ The whole project stands on finding a reliable hourly (or ≤hourly) per-state d
 - A full seasonal cycle takes a year — fine; the scoreboard is meaningful from week 2, and backfill covers seasonality for training.
 - India has no DST and one timezone — one genuine mercy in this domain.
 - Krish drives git himself; sessions prepare, he commits/pushes.
+
+## Licence note — 2026-09-26 (for Krish to decide; no LICENSE file added)
+
+The repo currently has no licence, so by default nobody else may legally reuse any of it. Suggestion, not a decision:
+
+- **Code (`collector/`, `docs/`):** MIT is the usual choice for a small open project like this — permissive, one paragraph, no obligations beyond keeping the copyright notice.
+- **Data we collect ourselves (`data/raw/`, `data/history/`):** consider CC BY 4.0 (free reuse with attribution) — it's our own collected readings, not a republish of someone else's file.
+- **Upstream terms to respect regardless of our own licence choice:** vidyutpravah/MERIT are public MoP dashboards with no published redistribution terms (be conservative, cite the source); Open-Meteo is free/keyless for non-commercial use; Grid-India PSP reports are government daily reports we derive from but don't republish raw; the Kaggle mirror mentioned in `DATA-SOURCES.md` is CC BY-SA 4.0 if it's ever used directly.
+
+Krish: add a `LICENSE` file (and a licence line in `README.md`) once you've picked one — intentionally not added automatically here.
+
+## Collector code review — 2026-09-26 (read-only, no changes made)
+
+Read `common.py`, `fetch_demand.py`, `fetch_weather.py`, `run_and_push.py`, `backfill_psp.py`, `config.py` end to end looking for real bugs. **No clear bugs found** — the slot guard, retry/backoff, gap-record-on-failure, and schema-break signalling all work as documented, and that's borne out by the 100% NAS-era coverage. Two things worth knowing (not code bugs, no fix applied):
+
+- **The one weather duplicate found in the data-quality check (`2026-08-10T01:00`, two identical `ok:true` readings 9 minutes apart)** is explained by the architecture, not a logic error: the slot guard only sees one writer's local file before it commits. On 2026-08-10 itself — the day collection cut over from the Actions bot to the NAS — it's plausible two writers both checked the slot as empty before either pushed, and `data/**/*.jsonl merge=union` kept both lines rather than deduping. Not a risk going forward: the Actions weather schedule has been disabled since that day, so there's only one writer now.
+- **A schema break in the primary source (vidyutpravah) would go unreported as long as the MERIT failover keeps working** — `collect_state()` returns success on the first source that parses, so a permanently broken primary with a working failover produces no alert, just a quiet, permanent shift to `source: "merit"`. Worth a glance at the `sources` breakdown occasionally (currently 1,114 vidyutpravah / 21 merit — healthy). Not fixed here: it's a monitoring gap, not a data-corrupting bug, and a real fix (separately logging a primary-source failure even when the failover succeeds) is a small design change, not a one-line fix — left for Krish to decide rather than changed unasked.
+
+No code was edited. If either of the above is ever worth fixing, remember: **the NAS needs a `git pull` in its node-local clone (`~/gridpulse/grid-pulse`) before any collector code change takes effect** — pushing from the PC alone does nothing until the NAS pulls.
+
+## README + dashboard — 2026-09-26
+
+- `README.md` added at the repo root (previously missing) — plain-language what/why, honest current status (collecting since 10 Aug, forecasting not started), data source terms, folder layout with a Python load snippet, how collection works, and the roadmap.
+- `docs/` added (first built as `site/`, renamed so GitHub Pages can serve it from `main` / `docs`) — a static, no-build-step dashboard (plain HTML/CSS/JS + inline SVG, no CDN) that fetches straight from `raw.githubusercontent.com`, so it stays fresh wherever it ends up hosted (e.g. GitHub Pages later). Shows latest-day-vs-last-week demand, a daily peak trend, a collection-health strip, temperature vs demand, and a last-updated time. See `docs/README.md` for details before turning on Pages.
+- Review fixes the same night (maintenance chat): the folder was renamed `site/` → `docs/`, because GitHub Pages can only serve the repo root or `/docs` (not `/site`). The chart axes now hug the data (they ran to 50,000 MW for ~30,000 MW of demand). Today counts only the hours that have started, so the health strip, coverage and "full days" no longer call a normal night "mostly missed". Checked in the browser: 100% coverage, 13/13 full days, today 4/4 hours so far, zero console errors.
+- **To publish (Krish):** `git pull`, commit, push, then Settings → Pages → Deploy from a branch → `main` / `/docs`.
 
 ## Timeline snapshot
 
